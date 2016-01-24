@@ -139,7 +139,7 @@ class PuliPluginImpl
             return;
         }
 
-        $factoryFile = Path::makeAbsolute($factoryFile, $this->rootDir);
+        $factoryFile = Path::makeAbsolute((string) $factoryFile, $this->rootDir);
 
         $this->insertFactoryClassConstant($autoloadFile, $factoryClass);
         $this->insertFactoryClassMap($classMapFile, $vendorDir, $factoryClass, $factoryFile);
@@ -338,33 +338,40 @@ class PuliPluginImpl
 
     private function checkForNotFoundErrors(array $puliPackages)
     {
-        /** @var PuliPackage[] $notFoundPackages */
-        $notFoundPackages = array_filter($puliPackages,
-            function (PuliPackage $package) {
-                return PuliPackage::STATE_NOT_FOUND === $package->getState()
-                && PuliPluginImpl::INSTALLER_NAME === $package->getInstallerName();
-            });
+        $callable = function (PuliPackage $package) {
+            return PuliPackage::STATE_NOT_FOUND === $package->getState()
+            && PuliPluginImpl::INSTALLER_NAME === $package->getInstallerName();
+        };
 
-        foreach ($notFoundPackages as $package) {
-            $this->printPackageWarning(
-                'The package "%s" (at "%s") could not be found',
-                $package->getName(),
-                $package->getInstallPath()
-            );
-        }
+        $this->checkForErrors(
+            $puliPackages,
+            $callable,
+            'The package "%s" (at "%s") could not be found'
+        );
     }
 
     private function checkForNotLoadableErrors(array $puliPackages)
     {
-        /** @var PuliPackage[] $notLoadablePackages */
-        $notLoadablePackages = array_filter($puliPackages, function (PuliPackage $package) {
+        $callable = function (PuliPackage $package) {
             return PuliPackage::STATE_NOT_LOADABLE === $package->getState()
-                && PuliPluginImpl::INSTALLER_NAME === $package->getInstallerName();
-        });
+            && PuliPluginImpl::INSTALLER_NAME === $package->getInstallerName();
+        };
 
-        foreach ($notLoadablePackages as $package) {
+        $this->checkForErrors(
+            $puliPackages,
+            $callable,
+            'The package "%s" (at "%s") could not be loaded'
+        );
+    }
+
+    private function checkForErrors(array $puliPackages, \Closure $filter, $message)
+    {
+        /** @var PuliPackage[] $foundPackages */
+        $foundPackages = array_filter($puliPackages, $filter);
+
+        foreach ($foundPackages as $package) {
             $this->printPackageWarning(
-                'The package "%s" (at "%s") could not be loaded',
+                $message,
                 $package->getName(),
                 $package->getInstallPath()
             );
